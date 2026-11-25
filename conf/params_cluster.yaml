@@ -1,0 +1,6 @@
+# Cluster paths for this project. Pass with: nextflow run main.nf -profile slurm -params-file conf/params_cluster.yaml
+# project_dir: BeeGFS (/mnt/beegfs/bradlem9 is symlinked to /home/bradlem9). Launch dir; work/ and .singularity/ live here.
+# publish_dir: NFS (Isilon), no file locking. Final outputs only, published with mode 'copy'.
+#              Same location on the laptop: /Volumes/fengplab/PTM
+project_dir: /home/bradlem9/bradlem9/PTM
+publish_dir: /home/bradlem9/isilon/PTM
