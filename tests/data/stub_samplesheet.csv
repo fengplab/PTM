@@ -1,0 +1,5 @@
+accession,file_name,kind,size_bytes,md5,url
+PXD999999,stub_A.raw,raw,1000,aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa,https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD999999/stub_A.raw
+PXD999999,stub_B.raw,raw,1000,bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb,https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD999999/stub_B.raw
+PXD999998,stub_C.RAW,raw,1000,cccccccccccccccccccccccccccccccc,https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD999998/stub_C.RAW
+PXD999998,PXD999998.sdrf.tsv,sdrf,50,,https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD999998/PXD999998.sdrf.tsv
