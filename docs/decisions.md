@@ -13,7 +13,15 @@ Scientific and infrastructure choices, with who made them and when.
   - acetylation (+42.010565)
   - phosphoribosylation (+212.0086, C5H9O7P), residues S, R, E, D, K, C, H
   - ADP-ribosylation (+541.0611), residues S, R, E, D, K, C, H
-  - Residues for methylation and acetylation: not yet fixed (proposal pending).
+  - Methylation: mono-, di- and tri-methyl on K and R (user, 2026-11-25).
+  - Acetylation: K and protein N-termini (user, 2026-11-25).
+  - TMT datasets: a lysine that is acetylated, di- or tri-methylated,
+    ADP-ribosylated or phosphoribosylated has no free amine, so it cannot carry
+    a TMT tag; monomethyl-K still can. The search must therefore not force TMT
+    on every K. Approach to be set out in the search-step plan.
+  - Trimethyl (+42.04695) and acetyl (+42.01057) differ by 0.036 Da. They can
+    be told apart only with a tight precursor tolerance (about 36 ppm at
+    1000 Da); results for these two are reported with that caveat.
 - **Search engine:** MSFragger / FragPipe. Licence key supplied by the user at
   run time; never committed.
 - **Targets:** `assets/target_genes.tsv`: the 8 phosphoribosyltransferases,

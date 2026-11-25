@@ -49,3 +49,28 @@ python3 -m pytest -q tests/
 ```
 
 Standard-library Python 3 only. Downloads metadata only, no raw data.
+
+## Step 1 (cluster): intake
+
+Downloads the RAW and SDRF files of one batch with MD5 checks, reads
+acquisition metadata from every RAW file (ThermoRawFileParser 1.4.5), and
+publishes per-file and per-dataset acquisition tables to NFS.
+
+```bash
+# laptop or cluster: make the samplesheet for a batch
+python3 bin/make_samplesheet.py --manifest step0/manifest.tsv \
+    --summary step0/dataset_summary.tsv --accessions PXD059089 --out pilot.csv
+# cluster, from the BeeGFS project directory
+sbatch run_slurm.sh pilot.csv pilot
+```
+
+Outputs on NFS under `<publish_dir>/step1/<batch>/`: `rawfile_acquisition.tsv`,
+`dataset_acquisition.tsv`, `<accession>/sdrf/`, `pipeline_info/`.
+RAW files stay in `work_<batch>/` on BeeGFS until the batch is finished.
+
+Stub test (no containers, no Slurm):
+
+```bash
+nextflow run main.nf -profile test -stub-run \
+    --samplesheet tests/data/stub_samplesheet.csv --publish_dir /tmp/ptm_stub --batch stub
+```
