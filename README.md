@@ -40,6 +40,8 @@ nextflow.config  parameters and the `slurm` profile
 ## Step 0 (laptop)
 
 ```bash
+conda env create -f environment.yml   # once
+conda activate ptm
 python3 bin/fetch_manifest.py --accessions assets/accessions.txt --outdir step0
 python3 bin/plan_batches.py --summary step0/dataset_summary.tsv \
     --manifest step0/manifest.tsv --available-tb <free TB> --outdir step0/plan

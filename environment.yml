@@ -1,0 +1,16 @@
+# Laptop environment (macOS arm64) for the standalone scripts in bin/ and their tests.
+# Not used inside Nextflow tasks: cluster processes run in pinned Singularity containers.
+#
+# Versions confirmed present on conda-forge (osx-arm64 for python, noarch for pytest)
+# on 2026-11-25. The 8 step 0 tests pass with exactly these versions (Linux).
+# Not solve-tested for osx-arm64: no conda solver could be run in the build session.
+#
+#   conda env create -f environment.yml
+#   conda activate ptm
+name: ptm
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.13.18
+  - pytest=9.1.1
