@@ -52,7 +52,9 @@ Standard-library Python 3 only. Downloads metadata only, no raw data.
 
 ## Step 1 (cluster): intake
 
-Downloads the RAW and SDRF files of one batch with MD5 checks, reads
+Downloads the RAW and SDRF files of one batch with pridepy over FTP (HTTPS to
+the PRIDE file server is refused from the cluster), checks each file's size and
+MD5 against the step 0 manifest, reads
 acquisition metadata from every RAW file (ThermoRawFileParser 1.4.5), and
 publishes per-file and per-dataset acquisition tables to NFS.
 
