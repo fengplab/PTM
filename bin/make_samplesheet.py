@@ -8,8 +8,8 @@ from this sheet (accession + file_name) and the SDRF, never from glob order.
 Inputs : manifest.tsv and dataset_summary.tsv from fetch_manifest.py
 Output : samplesheet CSV with columns
          accession,file_name,kind,size_bytes,md5,url
-         kind is 'raw' or 'sdrf'. url is HTTPS (PRIDE serves the FTP tree over
-         https://ftp.pride.ebi.ac.uk/, same mapping as PRIDE's pridepy client).
+         kind is 'raw' or 'sdrf'. url is the PRIDE FTP URL, kept for traceability;
+         the download step fetches by accession + file name with pridepy.
 
 Fails if a requested accession is missing, not status OK, has no RAW rows, or
 any RAW row lacks an MD5 or URL. Logs counts in and out.
@@ -20,7 +20,6 @@ import re
 import sys
 
 FTP_PREFIX = "ftp://ftp.pride.ebi.ac.uk/"
-HTTPS_PREFIX = "https://ftp.pride.ebi.ac.uk/"
 COLS = ["accession", "file_name", "kind", "size_bytes", "md5", "url"]
 MD5_RE = re.compile(r"^[0-9a-f]{32}$")
 
@@ -29,10 +28,10 @@ def log(msg):
     sys.stderr.write("[make_samplesheet] %s\n" % msg)
 
 
-def https_url(ftp_url):
+def check_url(ftp_url):
     if not ftp_url.startswith(FTP_PREFIX):
         raise ValueError("unexpected PRIDE URL (expected %s...): %s" % (FTP_PREFIX, ftp_url))
-    return HTTPS_PREFIX + ftp_url[len(FTP_PREFIX):]
+    return ftp_url
 
 
 def read_tsv(path):
@@ -62,7 +61,7 @@ def build(manifest, summary, accessions):
         for r, kind in [(x, "raw") for x in raw] + [(x, "sdrf") for x in sdrf]:
             rows.append({
                 "accession": acc, "file_name": r["file_name"], "kind": kind,
-                "size_bytes": r["size_bytes"], "md5": r["md5"], "url": https_url(r["ftp_url"]),
+                "size_bytes": r["size_bytes"], "md5": r["md5"], "url": check_url(r["ftp_url"]),
             })
         log("%s: %d manifest rows in, %d RAW + %d SDRF out (%.2f GB raw)"
             % (acc, len(mrows), len(raw), len(sdrf), sum(int(r["size_bytes"]) for r in raw) / 1e9))

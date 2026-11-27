@@ -1,23 +1,20 @@
-"""Tests for step 1 scripts: make_samplesheet, download_verify, summarise_rawmeta.
+"""Tests for step 1 scripts: make_samplesheet, verify_file, summarise_rawmeta.
 
 Synthetic data only. JSON fixtures follow the ThermoRawFileParser 1.4.5 output
 layout as read from its source (Writer/Metadata.cs, Query/ProxiSpectrum.cs).
 """
 import csv
-import functools
 import hashlib
-import http.server
 import json
 import os
 import sys
-import threading
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bin"))
-import download_verify as dv  # noqa: E402
 import make_samplesheet as ms  # noqa: E402
 import summarise_rawmeta as sr  # noqa: E402
+import verify_file as vf  # noqa: E402
 
 MD5 = "a" * 32
 
@@ -66,7 +63,7 @@ def test_samplesheet_selects_raw_and_sdrf(tmp_path):
     rows = read_csv(out)
     assert [r["kind"] for r in rows] == ["raw", "raw", "raw", "sdrf"]
     assert all(r["accession"] == "PXD000001" for r in rows)
-    assert rows[0]["url"].startswith("https://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD000001/")
+    assert rows[0]["url"].startswith("ftp://ftp.pride.ebi.ac.uk/pride/data/archive/2025/01/PXD000001/")
 
 
 @pytest.mark.parametrize("statuses,manifest,acc", [
@@ -80,83 +77,59 @@ def test_samplesheet_rejects_bad_input(tmp_path, statuses, manifest, acc):
         ms.main(["--manifest", m, "--summary", s, "--accessions", acc, "--out", str(tmp_path / "o.csv")])
 
 
-def test_https_url_rejects_foreign_host():
+def test_url_rejects_foreign_host():
     with pytest.raises(ValueError):
-        ms.https_url("ftp://example.org/file.raw")
+        ms.check_url("ftp://example.org/file.raw")
 
 
-# ---------------- download_verify ----------------
+# ---------------- verify_file ----------------
 
-@pytest.fixture
-def server(tmp_path):
-    root = tmp_path / "srv"
-    root.mkdir()
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
-    handler.log_message = lambda *a, **k: None
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    t = threading.Thread(target=httpd.serve_forever, daemon=True)
-    t.start()
-    yield root, "http://127.0.0.1:%d" % httpd.server_address[1]
-    httpd.shutdown()
+def run_verify(path, size, md5=None, allow=False):
+    args = ["--file", str(path), "--size", str(size)]
+    if md5 is not None:
+        args += ["--md5", md5]
+    if allow:
+        args.append("--allow-no-md5")
+    return vf.main(args)
 
 
-@pytest.fixture(autouse=True)
-def no_proxy(monkeypatch):
-    for v in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
-        monkeypatch.delenv(v, raising=False)
-    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
-
-
-def test_download_ok(server, tmp_path):
-    root, base = server
+def test_verify_ok(tmp_path):
     data = os.urandom(20000)
-    (root / "a.raw").write_bytes(data)
-    out = tmp_path / "a.raw"
-    rc = dv.main(["--url", base + "/a.raw", "--out", str(out), "--size", str(len(data)),
-                  "--md5", hashlib.md5(data).hexdigest(), "--pause", "0"])
-    assert rc == 0 and out.read_bytes() == data
-    assert not (tmp_path / "a.raw.part").exists()
+    p = tmp_path / "a.raw"
+    p.write_bytes(data)
+    assert run_verify(p, len(data), hashlib.md5(data).hexdigest()) == 0
+    assert run_verify(p, len(data), hashlib.md5(data).hexdigest().upper()) == 0
 
 
-def test_download_md5_mismatch_leaves_nothing(server, tmp_path):
-    root, base = server
-    (root / "a.raw").write_bytes(b"x" * 100)
-    out = tmp_path / "a.raw"
-    rc = dv.main(["--url", base + "/a.raw", "--out", str(out), "--size", "100",
-                  "--md5", "0" * 32, "--retries", "2", "--pause", "0"])
-    assert rc == 1
-    assert not out.exists() and not (tmp_path / "a.raw.part").exists()
+def test_verify_md5_mismatch(tmp_path):
+    p = tmp_path / "a.raw"
+    p.write_bytes(b"x" * 100)
+    assert run_verify(p, 100, "0" * 32) == 1
 
 
-def test_download_size_mismatch(server, tmp_path):
-    root, base = server
+def test_verify_size_mismatch(tmp_path):
     data = b"y" * 100
-    (root / "a.raw").write_bytes(data)
-    rc = dv.main(["--url", base + "/a.raw", "--out", str(tmp_path / "a.raw"), "--size", "101",
-                  "--md5", hashlib.md5(data).hexdigest(), "--retries", "1", "--pause", "0"])
-    assert rc == 1
+    p = tmp_path / "a.raw"
+    p.write_bytes(data)
+    assert run_verify(p, 101, hashlib.md5(data).hexdigest()) == 1
 
 
-def test_download_404_not_retried(server, tmp_path):
-    _, base = server
-    rc = dv.main(["--url", base + "/missing.raw", "--out", str(tmp_path / "m.raw"), "--size", "1",
-                  "--md5", MD5, "--retries", "3", "--pause", "0"])
-    assert rc == 1
+def test_verify_missing_file(tmp_path):
+    assert run_verify(tmp_path / "nope.raw", 1, MD5) == 1
 
 
-def test_download_requires_md5_unless_allowed(server, tmp_path):
-    root, base = server
-    (root / "s.sdrf.tsv").write_bytes(b"abc")
-    assert dv.main(["--url", base + "/s.sdrf.tsv", "--out", str(tmp_path / "s1"), "--size", "3"]) == 2
-    assert dv.main(["--url", base + "/s.sdrf.tsv", "--out", str(tmp_path / "s2"), "--size", "3",
-                    "--allow-no-md5", "--pause", "0"]) == 0
+def test_verify_requires_md5_unless_allowed(tmp_path):
+    p = tmp_path / "s.sdrf.tsv"
+    p.write_bytes(b"abc")
+    assert run_verify(p, 3) == 2
+    assert run_verify(p, 3, allow=True) == 0
+    assert run_verify(p, 4, allow=True) == 1
 
 
-def test_download_refuses_overwrite(tmp_path):
-    out = tmp_path / "a.raw"
-    out.write_bytes(b"old")
-    assert dv.main(["--url", "http://127.0.0.1:9/a.raw", "--out", str(out), "--size", "3", "--md5", MD5]) == 2
-    assert out.read_bytes() == b"old"
+def test_verify_rejects_malformed_md5(tmp_path):
+    p = tmp_path / "a.raw"
+    p.write_bytes(b"abc")
+    assert run_verify(p, 3, "xyz") == 2
 
 
 # ---------------- summarise_rawmeta ----------------
